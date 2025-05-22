@@ -40,6 +40,5 @@ def classify_chain(question: str):
     return response
 
 if __name__ == "__main__":
-
     response = classify_chain("How do I contact the author?")
     print(response)

@@ -1,16 +1,25 @@
 from typing_extensions import TypedDict, List, Literal
 from langgraph.graph import StateGraph, START
 from langchain_core.documents import Document
-from langchain_core.messages import trim_messages
-from classify_query import classify_chain
-from RAG_pipeline import rag_chain
-from contact import contact_chain
+from fastapi import FastAPI
+from pydantic import BaseModel
+import uvicorn
+
 import sys
 import os
-import uuid
-import sqlite3
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))   # This adds the src directory to the Python module search path.
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from src.chatbot.classify_query import classify_chain
+from src.chatbot.RAG_pipeline import rag_chain
+from src.chatbot.contact import contact_chain
+
+app = FastAPI()
+
+class QuestionRequest(BaseModel):
+    question: str
+
+class AnswerResponse(BaseModel):
+    answer: str
 
 class State(TypedDict, total=False):   # allow partial state during classification
     question: str
@@ -42,17 +51,16 @@ def build_main_pipeline():
 
     return builder.compile()
 
-def main_chain(question: str) -> str:
+@app.get("/")
+def index():
+    return {"title": "Test Chatbot", "message": "Ask me anything! Or book an appointment!"}
+
+@app.post("/chat", response_model=AnswerResponse)   # response_model ensures that the response follows the AnswerResponse schema
+def chat(question_request: QuestionRequest):
+    state = {"question": question_request.question}
     pipeline = build_main_pipeline()
-
-    input_state = {
-        "question": question,
-    }
-
-    response = pipeline.invoke(input_state)
-    return response["answer"]
+    response = pipeline.invoke(state)
+    return AnswerResponse(answer=response["answer"])
 
 if __name__ == "__main__":
-    question = "My name is looza. My email is looza@gmail.com, my phone number is 1234567890."
-    answer = main_chain(question)
-    print(f"\nAnswer:\n{answer}")
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -3,12 +3,9 @@ from langchain_core.documents import Document
 from langgraph.graph import START, StateGraph
 from typing_extensions import List, TypedDict
 from langchain.chat_models import init_chat_model
-from embed_data import get_vector_store
-
-vector_store = get_vector_store()
+from src.vector_store.embed_data import vector_store
 
 llm = init_chat_model("llama3-8b-8192", model_provider="groq")
-
 prompt = hub.pull("rlm/rag-prompt")
 
 class State(TypedDict):

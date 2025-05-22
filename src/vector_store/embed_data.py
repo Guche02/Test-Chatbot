@@ -6,7 +6,7 @@ from langchain_pinecone import PineconeVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 load_dotenv()
-from load_data import load_data
+from src.vector_store.load_data import load_data
 
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
@@ -47,10 +47,6 @@ def embed_data(data):
     # Index chunks
     _ = vector_store.add_documents(documents=all_splits)
     print(f"Indexed {len(all_splits)} chunks into the vector store.")
-
-def get_vector_store(index_name="new-index"):
-    index = pc.Index(index_name)
-    return PineconeVectorStore(index=index, embedding=embeddings)
 
 if __name__ == "__main__":
     data = load_data(pdf_folder="D:\\AI Stuff\\ML-April-2025\\projects\\langchain\\data")

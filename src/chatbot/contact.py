@@ -6,13 +6,10 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_core.messages import trim_messages, BaseMessage, HumanMessage
 from langgraph.graph.message import add_messages
 from typing import Sequence
-from model import Person
 from langchain_core.tools import tool
-
-import uuid
 import sqlite3
-
 from typing import NotRequired
+from src.chatbot.model import Person
 
 class State(TypedDict):
     question: NotRequired[str]
@@ -34,12 +31,11 @@ extraction_prompt_template = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are an expert extraction algorithm. "
-            "Only extract relevant information from the text. "
-            "If you do not know the value of an attribute asked to extract, "
-            "Ask the user to provide the value.",
+            "Extract the following information from the message and return it as JSON with these keys: "
+            "`name`, `email`, `phone`, `appointment_date`. "
+            "If not available, leave them null.\n"
+            "Message: {messages}"
         ),
-        ("human", "{messages}"),
     ]
 )
 
@@ -69,7 +65,7 @@ def extract_info(messages: list):
     )
     print("-----------------------------------------------------In extract_info, Filled prompt: ", filled_prompt)
     response = structured_llm.invoke(filled_prompt)
-    return {"message": response}
+    return {"messages": response}
 
 tools = [extract_info]
 
@@ -79,8 +75,8 @@ main_prompt = ChatPromptTemplate.from_messages(
             "system",
             """You are an intelligent reasoning-and-acting (ReAct) agent designed to help users contact the author of a paper.
 
-        You analyze the user's query step-by-step and determine **which tools should be used**, and **which steps do not require tools**. 
-        Use your reasoning ability to decide which step to continue and **when to invoke a tool**.
+        You analyze the user's query step-by-step and use extract_info tool to extract the user's info. 
+        Use your reasoning ability to decide which step to continue.
 
         Follow this structured process carefully. Avoid repeating any steps that are already completed.
 
@@ -94,8 +90,9 @@ main_prompt = ChatPromptTemplate.from_messages(
         - Name
         - Email
         - Phone Number
+        - Date of Appointment 
 
-        2. STRICTLY **Use the extract_info tool** to extract this information from the user's message. Do not generate the response yourself.
+        2. STRICTLY **Use the extract_info tool from available tools** to extract this information from the user's message. Do not generate the response yourself.
 
         4. **Ask the user to choose** which author they want to contact from the following options:
         - Author 1 – looza@gmail.com
@@ -147,9 +144,9 @@ def contact_step(state: State) -> dict:
         tool_call = response.tool_calls[0]
         print(f"Tool selected: {tool_call['name']} with arguments {tool_call['args']}")
         tool_result = extract_info.invoke(state)
-
-        return {"messages": [*state["messages"], response, tool_result["response"]]}
-
+        print("-----------------------------------------------------In contact step, Tool result: ", tool_result)   
+        return {"messages": tool_result}
+    
     return {"messages": [*state["messages"], response]}
 
 def graph_builder():
@@ -162,7 +159,7 @@ def graph_builder():
 
     return graph.compile(checkpointer=memory)
 
-config = {"configurable": {"thread_id": "a222"}}
+config = {"configurable": {"thread_id": "a342"}}
 
 def contact_chain(state: State):
     print("---------------------------------------------------------In contact_chain, received from main.py :", state)
@@ -175,6 +172,15 @@ def contact_chain(state: State):
     return {"answer" : response["messages"][-1].content}
 
 if __name__ == "__main__":
-    question = """user: How do I contact the author? """
-    answer = contact_chain(question)
+    test_state: State = {
+        "question": "Hi, my name is Anjali. You can reach me at anjali@example.com or call me on 9812345678. I want to schedule a meeting for next Friday.",
+    }
+    answer = contact_chain(test_state)
     print(f"Answer: {answer}")
+
+    # test_messages = [
+    #     HumanMessage(content="Hi, my name is Anjali. You can reach me at anjali@example.com or call me on 9812345678. I want to schedule a meeting for next Friday.")
+    # ]
+    # # Test the extract_info tool directly
+    # result = extract_info.invoke({"messages": test_messages})
+    # print("Extracted Info:\n", result)

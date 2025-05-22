@@ -1,7 +1,10 @@
 from typing import Optional
 from datetime import date
 from pydantic import BaseModel, Field, EmailStr, model_validator
-from modify_date import convert_date  
+from src.chatbot.modify_date import convert_date  
+
+def test():
+    print("Test function in model.py")
 
 class Person(BaseModel):
     """Information about a user."""
